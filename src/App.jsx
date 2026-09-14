@@ -15,7 +15,22 @@ import Board from "./components/Board";
 import GameResult from "./components/GameResult";
 
 function App() {
-  const [game, setGame] = useState(createInitialGame);
+  const [game, setGame] = useState(() => {
+    const saved = localStorage.getItem("othello_game_state");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse game state from localStorage", e);
+      }
+    }
+    return createInitialGame();
+  });
+
+  useEffect(() => {
+    localStorage.setItem("othello_game_state", JSON.stringify(game));
+  }, [game]);
+
   const validMoves = useMemo(
     () => (game.gameOver ? [] : getValidMoves(game.board, game.currentPlayer)),
     [game.board, game.currentPlayer, game.gameOver],
@@ -26,6 +41,11 @@ function App() {
     () => new Set(validMoves.map((move) => `${move.row},${move.column}`)),
     [validMoves],
   );
+
+  const playPlaceSound = () => {
+    const audio = new Audio("/assets/place.mp3");
+    audio.play().catch((e) => console.error("Audio playback failed", e));
+  };
 
   useEffect(() => {
     if (game.gameOver) return undefined;
@@ -39,6 +59,7 @@ function App() {
 
     const timerId = window.setTimeout(() => {
       const move = getCpuMove(validMoves);
+      playPlaceSound();
       setGame((current) => {
         const nextBoard = placeDisc(current.board, move, WHITE);
         const tempState = {
@@ -63,6 +84,7 @@ function App() {
     );
     if (!move) return;
 
+    playPlaceSound();
     setGame((current) => {
       const nextBoard = placeDisc(current.board, move, BLACK);
       const tempState = {
@@ -77,7 +99,9 @@ function App() {
   }
 
   function restartGame() {
-    setGame(createInitialGame());
+    const newGame = createInitialGame();
+    setGame(newGame);
+    localStorage.setItem("othello_game_state", JSON.stringify(newGame));
   }
 
   return (
